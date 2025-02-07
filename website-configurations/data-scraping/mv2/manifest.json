@@ -1,0 +1,31 @@
+{
+    "name": "Inject and Download",
+    "description": "Injects a PII Form and Captures Network Traffic/Source Files",
+    "version": "1.3",
+    "manifest_version": 2,
+    "content_scripts": [
+      {
+        "matches": ["http://*/*", "https://*/*"],
+        "js": ["content_script.js"],
+        "run_at": "document_end"
+      }
+    ],
+    "background": {
+      "scripts": ["env.js", "background.js"],
+      "persistent": true
+    },
+    "permissions": [
+      "downloads", 
+      "tabs", 
+      "activeTab",
+      "contextMenus", 
+      "storage", 
+      "webRequest",
+      "webRequestBlocking",
+      "webNavigation",
+      "debugger",
+      "<all_urls>",
+      "http://*/*",
+      "https://*/*"
+    ]
+  }
