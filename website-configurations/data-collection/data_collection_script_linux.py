@@ -17,6 +17,10 @@ load_dotenv()
 
 # path to base directory (for logs, chrome extensions)
 BASE_PATH = os.environ.get("BASE_PATH")
+# endpoint to fetch the list of urls to visit
+URLS_ENDPOINT = os.environ.get("GET_URLS_ENDPOINT")
+# name of gcloud bucket to dump files
+BUCKET_NAME = os.environ.get("BUCKET_NAME")
 
 # redirect stdout and stderr to log files
 if not os.path.exists(f"{BASE_PATH}/logs"):
@@ -47,8 +51,7 @@ def get_vm_name():
 # get list of websites to visit
 def get_urls(vm_name):
     params = {"vmName": vm_name}
-    get_urls = "https://us-central1-dontcrimeme.cloudfunctions.net/pixel_get_urls"
-    url_response = requests.get(get_urls, params=params)
+    url_response = requests.get(URLS_ENDPOINT, params=params)
     return url_response.json()['data']
 
 def close_chrome():
@@ -57,14 +60,14 @@ def close_chrome():
     result = subprocess.run(command, capture_output=True, text=True)
     pids = result.stdout.strip().split('\n')
     for pid in pids:
-            try:
-                    pid_int = int(pid)
-                    # Send the SIGTERM signal to the Chrome process
-                    os.kill(pid_int, signal.SIGTERM)
-            except ValueError:
-                    print("invalid PID: ", pid)
-            except ProcessLookupError:
-                    print(f"Process {pid_int} not found. It may have already been terminated.")
+        try:
+            pid_int = int(pid)
+            # Send the SIGTERM signal to the Chrome process
+            os.kill(pid_int, signal.SIGTERM)
+        except ValueError:
+            print("invalid PID: ", pid)
+        except ProcessLookupError:
+            print(f"Process {pid_int} not found. It may have already been terminated.")
 
 # mark website as visited
 def add_entry(bucket_name, blob_name, entry, remaining_visits, vm_name):
@@ -176,10 +179,10 @@ def main():
             # open google with chrome extensions
             subprocess.Popen([
                 "/usr/bin/google-chrome",
-                    validated_url["url"],
-                    "--args", "--auto-open-devtools-for-tabs", "--disable-extensions-http-throttling ",
-                    f"--load-extension={BASE_PATH}/extensions/mv2,{BASE_PATH}/extensions/mv3",
-                    "--no-default-browser-check", "--no-first-run", "--disable-notifications", "--disable-features=Translate", "--simulate-outdated-no-au='Tue, 31 Dec 2099 23:59:59 GMT"
+                validated_url["url"],
+                "--args", "--auto-open-devtools-for-tabs", "--disable-extensions-http-throttling ",
+                f"--load-extension={BASE_PATH}/extensions/mv2,{BASE_PATH}/extensions/mv3",
+                "--no-default-browser-check", "--no-first-run", "--disable-notifications", "--disable-features=Translate", "--simulate-outdated-no-au='Tue, 31 Dec 2099 23:59:59 GMT"
             ])
             time.sleep(180) # give page time to load and download
 
@@ -195,7 +198,7 @@ def main():
                         f.write(f'{new_entry}\n')
                 blob.upload_from_filename(local_file_name)
 
-            add_entry('pixel_tracking_data', f'visited_websites_{vm_name}.json', url, item['remaining_visits'], vm_name)
+            add_entry(BUCKET_NAME, f'visited_websites_{vm_name}.json', url, item['remaining_visits'], vm_name)
 
             # take screenshot
             if not os.path.exists(f"{BASE_PATH}/screenshots"):
@@ -212,34 +215,6 @@ def main():
                 blob.upload_from_filename(screenshot_file)
             except Exception as e:
                 print(f"uploading screenshot failed with error {e} at {datetime.now(tz)}")
-
-            # upload metadata file to bucket
-            if not os.path.exists(f"{BASE_PATH}/metadata"):
-                os.makedirs(f"{BASE_PATH}/metadata")
-            metadata_file = f"{BASE_PATH}/metadata/metadata-{url_text}-{nowDate}.txt"
-            with open(metadata_file, "a") as f:
-                f.write(f"url: {url}\n")
-                f.write(f"timestamp: {nowDate}")
-
-            blob = bucket.blob(f"{nowDate}/{vm_name}/metadata/metadata-{url}-{i}-{nowDate}.txt")
-            try:
-                print(f"uploading metadata {blob} at {datetime.now(tz)}")
-                blob.upload_from_filename(metadata_file)
-            except Exception as e:
-                print(f"uploading metadata failed with error {e} at {datetime.now(tz)}")
-
-            # upload log file to bucket
-            with open(metadata_file, "a") as f:
-                f.write(f"url: {url}\n")
-                f.write(f"timestamp: {nowDate}")
-
-            blob = bucket.blob(f"{nowDate}/{vm_name}/logs/log-{url}-{i}-{nowDate}.txt")
-            try:
-                print(f"uploading log {blob} at {datetime.now(tz)}")
-                log_file.flush()
-                blob.upload_from_filename(f"{BASE_PATH}/logs/data_collection_log.log")
-            except Exception as e:
-                print(f"uploading log failed with error {e} at {datetime.now(tz)}")
 
             time.sleep(10)
 

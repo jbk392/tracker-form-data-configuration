@@ -11,21 +11,14 @@
       }
     ],
     "background": {
-      "scripts": ["env.js", "background.js"],
+      "scripts": ["background.js"],
       "persistent": true
     },
     "permissions": [
-      "downloads", 
       "tabs", 
-      "activeTab",
-      "contextMenus", 
-      "storage", 
       "webRequest",
       "webRequestBlocking",
       "webNavigation",
-      "debugger",
-      "<all_urls>",
-      "http://*/*",
-      "https://*/*"
+      "debugger"
     ]
   }

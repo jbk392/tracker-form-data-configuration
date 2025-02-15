@@ -39,6 +39,7 @@ async function processQueue(vmName, urlName) {
   
   batchNumber += 1;
 
+
   fetch(ENV.UPLOAD_ENDPOINT, {
     method: 'POST',
     headers: {
@@ -54,6 +55,8 @@ async function processQueue(vmName, urlName) {
     requestType = 'failed-upload-response';
     logItem(ENV.UPLOAD_ENDPOINT, `upload-response for batch ${batchNumber}`, requestType, `file count: ${batchPayload.length}`, error);
   });
+
+  
 
   setTimeout(() => processQueue(vmName, urlName), 10000); // Process the next batch after 10 seconds
 }
