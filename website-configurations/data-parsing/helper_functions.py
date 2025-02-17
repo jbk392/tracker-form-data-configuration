@@ -1,11 +1,8 @@
 import js2py
 import re 
 import os
-from constants import BASE_PATH
 import json
 from postgres_functions import insert_into_db
-
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "./dontcrimeme-3b0e5a181e86.json"
 
 # make javascript file parseable 
 def prepare_to_parse(location, isBlob=True):
@@ -21,17 +18,23 @@ def prepare_to_parse(location, isBlob=True):
 
 # log files are cumulative, so we only need to review the last file uploaded
 def extractLogNumbers(logs):
-    highest_logs = {"non-mv3": {"number": 0, "path": None}, "mv3": {"number": 0, "path": None}}
+    def extractNumber(filename):
+        return int(''.join(filter(str.isdigit, filename.split('-')[1])))
+    
+    highest_mv3 = None
+    highest_mv2 = None
+    mv3_files = [f for f in logs if f.endswith('-mv3.json')]
+    mv2_files = [f for f in logs if f.endswith('.json') and not f.endswith('-mv3.json')]
 
-    for log in logs:
-       match = re.match(r"logs-(\d+)(-mv3)?\.json\.gz", log)
-       if match:
-          number = int(match.group(1))
-          group = "mv3" if match.group(2) else "non-mv3"
-          if number > highest_logs[group]["number"]:
-                highest_logs[group]["number"] = number
-                highest_logs[group]["path"] = log
-    return highest_logs["non-mv3"]["path"], highest_logs["mv3"]["path"]
+    # Handle possible error if log files were missed
+    if mv3_files:
+        highest_mv3 = max(mv3_files, key=extractNumber)
+    else:
+        highest_mv3
+    if mv2_files:
+        highest_mv2 = max(mv2_files, key=extractNumber)
+
+    return highest_mv2, highest_mv3
 
 def get_mapped_files(path):
     mapped_files = {}
@@ -41,16 +44,15 @@ def get_mapped_files(path):
     # so we can easily access logs and config files
     def walk_path(subpath):
         not_dirs = ["broken_urls.txt", "screenshots", "logs", "metadata"]
-        for root, dirs, files in os.walk(BASE_PATH + subpath):
+        for root, dirs, files in os.walk(subpath):
             for file in files:
                 path = os.path.join(root, file)
                 path_split = path.split('/')
 
-                # indices are assuming the data lives in a different root directory than the parser
-                # this will need to be modified based on the directory structure
-                date = path_split[5]
-                vm_name = path_split[6]
-                website_name = path_split[7]
+                # this may be need to modified if accomodate a different directory structure
+                date = path_split[0]
+                vm_name = path_split[1]
+                website_name = path_split[2]
 
                 # websites the VM could not reach
                 # however, we still want a record of them in our parsed database
@@ -66,8 +68,8 @@ def get_mapped_files(path):
                             }
                             broken_dirs.append(new_entry)
                 
-                if website_name not in not_dirs and len(path_split) >= 9:
-                    file_name = path_split[8]
+                if website_name not in not_dirs:
+                    file_name = path_split[3]
                     path_key = f'{website_name}/{date}/{vm_name}'
                     if path_key not in mapped_files:
                         mapped_files[path_key] = {

@@ -1,0 +1,11 @@
+backports.zoneinfo==0.2.1
+beautifulsoup4==4.13.3
+bs4==0.0.2
+Js2Py==0.74
+psycopg2==2.9.10
+pyjsparser==2.7.1
+python-dotenv==1.0.1
+six==1.17.0
+soupsieve==2.6
+typing-extensions==4.12.2
+tzlocal==5.2
